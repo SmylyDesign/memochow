@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メモ帳アプリ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <center><h1 class="mb-4">メモ帳アプリ</h1><p>ページをリロードしたり閉じたりしても、メモデータは消えません。が、一日の作業が完了したらエクスポートして、メモデータのバックアップを取っておくことをお勧めします。</p></center>
+        <div class="row row-cols-1 row-cols-md-2 g-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <button id="newMemoBtn" class="btn btn-primary w-100">新規メモ登録</button>
+                        <p class="card-text mt-2">新しいメモを作成し登録します。（長文、改行、絵文字に対応しています。）登録されたメモは、メモ一覧表示から確認、各種操作ができます。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <button id="listMemoBtn" class="btn btn-secondary w-100">メモ一覧表示</button>
+                        <p class="card-text mt-2">登録されたメモの一覧を表示します。登録済みメモの編集、削除ができます。（検索バーで複数ワードでの絞り込み検索が可能です。）</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <button id="exportBtn" class="btn btn-success w-100">エクスポート</button>
+                        <p class="card-text mt-2">登録済みのメモデータ全件をJSONファイルにして保存します。保存したJSONファイルをインポートボタンから読み込むことで再利用できます。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <button id="importBtn" class="btn btn-warning w-100">インポート</button>
+                        <input type="file" id="importFile" class="form-control" accept=".json">
+                        <p class="card-text mt-2">JSONファイルからメモデータを読み込みます。（現在のメモデータは読み込まれたメモデータに上書きされますので注意してください。）。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <button id="resetBtn" class="btn btn-danger w-100">リセット</button>
+                        <p class="card-text mt-2">全てのメモデータを完全に削除します。この操作は取り消しできませんので注意してください。</p>
+                    </div>
+                </div>
+            </div>
+
+        </div><br><br>
+    </div>
+
+    <!-- メモ一覧モーダル -->
+    <div class="modal fade" id="listModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">メモ一覧</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="searchInput" class="form-control mb-3" placeholder="検索（空白を入れて複数ワードでの絞り込み検索ができます。）">
+                    <div id="memoList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- メモ編集モーダル -->
+    <div class="modal fade" id="editModal" tabindex="-1" style="background-color: rgba(79, 79, 79, 0.5);">
+        <div class="modal-dialog modal-lg">  <!-- modal-dialog を modal-lg に変更 -->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">メモ編集</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <textarea id="editMemoText" class="form-control" rows="8"></textarea>  <!-- rows を 8 に変更 -->
+                    <button id="editEmojiBtn" class="btn btn-secondary mt-2" title="使いたい絵文字をクリックするとクリップボードにコピーされるので、編集フォームに戻ってCtl+vで張り付けて下さい。">絵文字</button>  <!-- 絵文字ボタンを追加 -->
+                    <div class="mt-2">
+                        <span id="editCurrentTime" class="fw-bold"></span> <button id="copyEditTimeBtn" class="btn btn-sm btn-secondary" title="現在日時がクリップボードにコピーされますので、編集フォームにCtl+vで張り付けて下さい。">現在日時をコピー</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="button" id="saveEditBtn" class="btn btn-primary">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新規メモモーダル -->
+    <div class="modal fade" id="newMemoModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">  <!-- modal-dialog を modal-lg に変更 -->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">新規メモ登録</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <textarea id="newMemoText" class="form-control" rows="8"></textarea>  <!-- rows を 8 に変更 -->
+                    <button id="emojiBtn" class="btn btn-secondary mt-2" title="使いたい絵文字をクリックするとクリップボードにコピーされるので、登録フォームに戻ってCtl+vで張り付けて下さい。">絵文字</button>  <!-- 絵文字ボタンを追加 -->
+                    <div class="mt-2">
+                        <span id="currentTime" class="fw-bold"></span> <button id="copyTimeBtn" class="btn btn-sm btn-secondary" title="現在日時がクリップボードにコピーされますので、登録フォームにCtl+vで張り付けて下さい。">現在日時をコピー</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="button" id="saveNewMemoBtn" class="btn btn-primary">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- 絵文字選択モーダル -->
+        <div class="modal fade" id="emojiModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">絵文字選択</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <iframe src="https://fromkato.com/emoji" width="100%" height="400px"></iframe>  <!-- iframeで絵文字ページを表示 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let db;
+const DB_NAME = 'MemoApp';
+const STORE_NAME = 'memos';
+
+document.addEventListener('DOMContentLoaded', () => {
+    initDB();
+    document.getElementById('newMemoBtn').addEventListener('click', showNewMemoModal);
+    document.getElementById('listMemoBtn').addEventListener('click', showMemoList);
+    document.getElementById('exportBtn').addEventListener('click', exportMemos);
+    document.getElementById('importBtn').addEventListener('click', importMemos);
+    document.getElementById('saveNewMemoBtn').addEventListener('click', saveNewMemo);
+    document.getElementById('saveEditBtn').addEventListener('click', saveEditMemo);
+    document.getElementById('searchInput').addEventListener('input', filterMemos);
+});
+
+        // リアルタイム日時表示
+        const currentTimeElement = document.getElementById('currentTime');
+        const copyTimeBtn = document.getElementById('copyTimeBtn');
+
+        function updateCurrentTime() {
+            const now = new Date();
+            currentTimeElement.textContent = now.toLocaleString();
+        }
+
+        updateCurrentTime(); // 初期表示
+        setInterval(updateCurrentTime, 1000); // 1秒ごとに更新
+
+        // 日時コピー機能
+        copyTimeBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(currentTimeElement.textContent)
+                .then(() => {
+
+                })
+                .catch(err => {
+                    console.error('コピーに失敗しました:', err);
+                });
+        });
+
+        // 編集モーダルのリアルタイム日時表示
+        const editCurrentTimeElement = document.getElementById('editCurrentTime');
+        const copyEditTimeBtn = document.getElementById('copyEditTimeBtn');
+
+        function updateEditCurrentTime() {
+            const now = new Date();
+            editCurrentTimeElement.textContent = now.toLocaleString();
+        }
+
+        updateEditCurrentTime(); // 初期表示
+        setInterval(updateEditCurrentTime, 1000); // 1秒ごとに更新
+
+        // 編集モーダルの日時コピー機能
+        copyEditTimeBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(editCurrentTimeElement.textContent)
+                .then(() => {
+                    // コピー成功時の処理
+                })
+                .catch(err => {
+                    console.error('コピーに失敗しました:', err);
+                });
+        });
+
+function initDB() {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onerror = (event) => console.error("IndexedDB error:", event.target.error);
+    request.onsuccess = (event) => {
+        db = event.target.result;
+        console.log("Database opened successfully");
+    };
+    request.onupgradeneeded = (event) => {
+        db = event.target.result;
+        const objectStore = db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+        objectStore.createIndex("content", "content", { unique: false });
+        objectStore.createIndex("createdAt", "createdAt", { unique: false });
+        objectStore.createIndex("updatedAt", "updatedAt", { unique: false });
+    };
+}
+
+function showNewMemoModal() {
+    const modal = new bootstrap.Modal(document.getElementById('newMemoModal'));
+    modal.show();
+}
+
+function saveNewMemo() {
+    const content = document.getElementById('newMemoText').value.trim();
+    if (content) {
+        const memo = {
+            content: content,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        const transaction = db.transaction([STORE_NAME], "readwrite");
+        const objectStore = transaction.objectStore(STORE_NAME);
+        const request = objectStore.add(memo);
+        request.onsuccess = () => {
+            console.log("Memo saved successfully");
+            document.getElementById('newMemoText').value = '';
+            bootstrap.Modal.getInstance(document.getElementById('newMemoModal')).hide();
+        };
+        request.onerror = (event) => console.error("Error saving memo:", event.target.error);
+    }
+}
+
+function showMemoList() {
+    const modal = new bootstrap.Modal(document.getElementById('listModal'));
+    modal.show();
+    loadMemos();
+}
+
+function loadMemos() {
+    const memoList = document.getElementById('memoList');
+    memoList.innerHTML = '';
+    const objectStore = db.transaction(STORE_NAME).objectStore(STORE_NAME);
+    const request = objectStore.index('updatedAt').openCursor(null, 'prev');
+    request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+            const memo = cursor.value;
+            const memoElement = createMemoElement(memo);
+            memoList.appendChild(memoElement);
+            cursor.continue();
+        }
+    };
+}
+
+function createMemoElement(memo) {
+    const div = document.createElement('div');
+    div.className = 'card mb-3';
+    div.innerHTML = `
+        <div class="card-body">
+            <p class="card-text">${memo.content.replace(/\n/g, '<br>')}</p>  <!-- 改行コードを<br>に変換 -->
+            <div class="d-flex">  <!-- 作成日時と更新日時を横並びに -->
+                <p class="card-text"><small class="text-muted"><span class="fw-bold">作成 : </span>${new Date(memo.createdAt).toLocaleString()}</small></p>
+                <p class="card-text"><small class="text-muted">　</small></p>
+                <p class="card-text"><small class="text-muted"><span class="fw-bold">更新 : </span>${new Date(memo.updatedAt).toLocaleString()}</small></p>
+            </div>
+            <button class="btn btn-sm btn-primary edit-btn" data-id="${memo.id}">編集</button>
+            <button class="btn btn-sm btn-danger delete-btn" data-id="${memo.id}">削除</button>
+        </div>
+    `;
+    div.querySelector('.edit-btn').addEventListener('click', () => showEditModal(memo));
+    div.querySelector('.delete-btn').addEventListener('click', () => deleteMemo(memo.id));
+    return div;
+}
+
+
+
+
+
+
+function showEditModal(memo) {
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+    document.getElementById('editMemoText').value = memo.content;
+    document.getElementById('saveEditBtn').setAttribute('data-id', memo.id);
+    modal.show();
+}
+
+function saveEditMemo() {
+    const id = parseInt(document.getElementById('saveEditBtn').getAttribute('data-id'));
+    const content = document.getElementById('editMemoText').value.trim();
+    if (content) {
+        const transaction = db.transaction([STORE_NAME], "readwrite");
+        const objectStore = transaction.objectStore(STORE_NAME);
+        const request = objectStore.get(id);
+        request.onsuccess = (event) => {
+            const memo = event.target.result;
+            memo.content = content;
+            memo.updatedAt = new Date().toISOString();
+            objectStore.put(memo);
+            console.log("Memo updated successfully");
+            document.getElementById('editMemoText').value = '';
+            bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+            loadMemos();
+        };
+    }
+}
+
+function deleteMemo(id) {
+    if (confirm('本当にこのメモを削除しますか？')) {
+        const transaction = db.transaction([STORE_NAME], "readwrite");
+        const objectStore = transaction.objectStore(STORE_NAME);
+        const request = objectStore.delete(id);
+        request.onsuccess = () => {
+            console.log("Memo deleted successfully");
+            loadMemos();
+        };
+    }
+}
+
+
+
+function filterMemos() {
+    const searchTerms = document.getElementById('searchInput').value.toLowerCase().split(/\s+/); // 空白で分割
+    const memoList = document.getElementById('memoList');
+    const memoElements = memoList.querySelectorAll('.card');
+
+    memoElements.forEach(memoElement => {
+        let match = true; // 全ての検索ワードが含まれているか判定
+        const memoContent = memoElement.querySelector('.card-text').textContent.toLowerCase();
+
+        searchTerms.forEach(searchTerm => {
+            if (!memoContent.includes(searchTerm)) {
+                match = false; // 1つでも含まれていない場合はfalse
+            }
+        });
+
+        if (match) {
+            memoElement.style.display = 'block';
+        } else {
+            memoElement.style.display = 'none';
+        }
+    });
+}
+
+
+
+
+
+
+function exportMemos() {
+    const objectStore = db.transaction(STORE_NAME).objectStore(STORE_NAME);
+    const request = objectStore.getAll();
+    request.onsuccess = (event) => {
+        const memos = event.target.result;
+        const json = JSON.stringify(memos, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'memos.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+}
+
+function importMemos() {
+    const fileInput = document.getElementById('importFile');
+    const file = fileInput.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const memos = JSON.parse(event.target.result);
+                const transaction = db.transaction([STORE_NAME], "readwrite");
+                const objectStore = transaction.objectStore(STORE_NAME);
+                // 既存のデータをクリア
+                objectStore.clear();
+                // インポートしたデータを挿入
+                memos.forEach(memo => {
+                    delete memo.id;  // IDを削除して自動生成させる
+                    objectStore.add(memo);
+                });
+                transaction.oncomplete = () => {
+                    alert('メモデータのインポートに成功しました。');
+                    loadMemos();
+                    fileInput.value = '';
+                };
+            } catch (error) {
+                console.error("Error importing memos:", error);
+                alert('インポートに失敗しました。ファイルの形式が正しいか確認してください。');
+            }
+        };
+        reader.readAsText(file);
+    }
+}
+
+
+document.getElementById('resetBtn').addEventListener('click', resetMemos);
+
+document.getElementById('emojiBtn').addEventListener('click', () => {
+            const emojiModal = new bootstrap.Modal(document.getElementById('emojiModal'));
+            emojiModal.show();
+});
+
+document.getElementById('editEmojiBtn').addEventListener('click', () => {
+            const emojiModal = new bootstrap.Modal(document.getElementById('emojiModal'));
+            emojiModal.show();
+});
+
+function resetMemos() {
+    if (confirm('本当にすべてのメモデータを削除しますか？')) {
+        const transaction = db.transaction([STORE_NAME], "readwrite");
+        const objectStore = transaction.objectStore(STORE_NAME);
+        const request = objectStore.clear();
+        request.onsuccess = () => {
+            alert('全てのメモデータが削除されました。');
+            loadMemos();
+        };
+    }
+}
+    </script>
+</body>
+</html>
